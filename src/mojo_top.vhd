@@ -2,12 +2,17 @@
 -- FUMO sumo robot
 -- Based on the Mojo V3 FPGA
 --
---
+--Mojo base VHLD file:
+--Translated from Mojo-base Verilog project @ http://embeddedmicro.com/frontend/files/userfiles/files/Mojo-Base.zip
+--by Xark
 ----------------------------------------------------------------------------------
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.all;
 use IEEE.NUMERIC_STD.all;
+
+LIBRARY work;
+USE work.constants.ALL;
 
 entity mojo_top is
 	port (
@@ -60,13 +65,11 @@ signal last_sample	    : std_logic_vector(9 downto 0);
     ------------------------------------------------------------------------------
     --ADDITIONAL SIGNALS FOR FUMO
     ------------------------------------------------------------------------------
-    CONSTANT pivot_time : integer := 100000000;
-
     TYPE state_type IS (idle, forward, left_pivot, right_pivot);
-    SIGNAL state                              : state_type := idle;
-    SIGNAL refl_ack_s, left_fired_s, right_fired_s : std_logic := '0';
-    SIGNAL motor_control_s                    : std_logic_vector(2 DOWNTO 0) := "000";
-    SIGNAL counter_s                          : integer := 0; ---- work out range for this
+    SIGNAL state                       : state_type := idle;
+    SIGNAL left_fired_s, right_fired_s : std_logic := '0';
+    SIGNAL motor_control_s             : std_logic_vector(2 DOWNTO 0) := "000";
+    SIGNAL counter_s                   : integer := 0; ---- work out range for this
 
 begin
 
@@ -78,53 +81,53 @@ begin
     ----state change process----
     PROCESS(clk) BEGIN
         IF rising_edge(clk) THEN
-            CASE state IS
-                WHEN idle =>
-                    led(7 DOWNTO 4) <= "1000";
-                    refl_ack_s      <= '0';
-                    IF (rst = '1') THEN
-                        state <= forward;
-                    END IF;
+            IF (rst = '1') THEN
+                state <= idle;
+            ELSE
+                CASE state IS
+                    WHEN idle =>
+                        led(7 DOWNTO 2) <= "100000";
+                        motor_control_s <= stop_c;
+                        state           <= forward;
 
-                WHEN forward =>
-                    led(7 DOWNTO 4) <= "0100";
-                    motor_control_s <= "111"; --TURN THESE INTO A CONSTANT FILE
-                    IF (left_fired_s = '1' AND right_fired_s = '1') THEN
-                        counter_s <= pivot_time;
-                        state     <= right_pivot; --create new state 180
-                    ELSIF (left_fired_s = '1') THEN
-                        counter_s <= pivot_time;
-                        state     <= right_pivot;
-                    ELSIF (right_fired_s = '1') THEN
-                        counter_s <= pivot_time;
-                        state     <= left_pivot;
-                    END IF;
+                    WHEN forward =>
+                        led(7 DOWNTO 2) <= "010000";
+                        motor_control_s <= forward_c;
+                        IF (left_fired_s = '1' AND right_fired_s = '1') THEN
+                            counter_s <= pivot_time_c;
+                            state     <= right_pivot; --create new state 180
+                        ELSIF (left_fired_s = '1') THEN
+                            counter_s <= pivot_time_c;
+                            state     <= right_pivot;
+                        ELSIF (right_fired_s = '1') THEN
+                            counter_s <= pivot_time_c;
+                            state     <= left_pivot;
+                        END IF;
 
-                WHEN left_pivot =>
-                    led(7 DOWNTO 4) <= "0010";
-                    motor_control_s <= "010";
-                    IF (counter_s = 0) THEN
-                        --refl_ack_s <= '1';
-                        state      <= forward;
-                    ELSE
-                        counter_s <= counter_s - 1;
-                    END IF;
+                    WHEN left_pivot =>
+                        led(7 DOWNTO 2) <= "001000";
+                        motor_control_s <= left_pivot_c;
+                        IF (counter_s = 0) THEN
+                            state <= forward;
+                        ELSE
+                            counter_s <= counter_s - 1;
+                        END IF;
 
-                WHEN right_pivot =>
-                    led(7 DOWNTO 4) <= "0001";
-                    motor_control_s <= "001";
-                    IF (counter_s = 0) THEN
-                        --refl_ack_s <= '1';
-                        state      <= forward;
-                    ELSE
-                        counter_s <= counter_s - 1;
-                    END IF;
-            END CASE;
+                    WHEN right_pivot =>
+                        led(7 DOWNTO 2) <= "000100";
+                        motor_control_s <= right_pivot_c;
+                        IF (counter_s = 0) THEN
+                            state <= forward;
+                        ELSE
+                            counter_s <= counter_s - 1;
+                        END IF;
+                    END CASE;
+            END IF;
         END IF;
     END PROCESS;
 
-    led(2) <= left_fired_s;
-    led(3) <= right_fired_s;
+    led(1) <= left_fired_s; --LED flickers to quick to see
+    led(0) <= right_fired_s;
 
     ------------------------------------------------------------------------------
     --COMPONENT INSTANTIATION
@@ -174,12 +177,10 @@ begin
     refectance_sensors : ENTITY work.reflectance_sens
         PORT MAP (
     	    i_clk            => clk,
-            i_ack            => refl_ack_s,
     		io_reflectance_1 => io_reflectance_1,
     		io_reflectance_2 => io_reflectance_2,
             o_left_fired     => left_fired_s,
-            o_right_fired    => right_fired_s,
-            o_led            => led(1 DOWNTO 0)
+            o_right_fired    => right_fired_s
     	 );
 
 end RTL;

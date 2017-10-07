@@ -8,12 +8,10 @@ use IEEE.STD_LOGIC_1164.ALL;
 ENTITY reflectance_sens IS
     PORT (
 	    i_clk            : IN  std_logic;
-        i_ack            : IN std_logic;
 		io_reflectance_1 : INOUT std_logic;
 		io_reflectance_2 : INOUT std_logic;
         o_left_fired     : OUT std_logic;
-        o_right_fired    : OUT std_logic;
-        o_led            : OUT std_logic_vector(1 DOWNTO 0)
+        o_right_fired    : OUT std_logic
 	 );
 END reflectance_sens;
 
@@ -32,10 +30,11 @@ BEGIN
         IF rising_edge(i_clk) THEN
             CASE state IS
                 WHEN idle =>
-                    o_led         <= "00";
+                    state         <= ping;
+                    o_left_fired  <= '0';
+                    o_right_fired <= '0';
 					timer_1       <= 0;
 					timer_2       <= 0;
-                    state         <= ping;
 
                 WHEN ping =>
                     io_reflectance_1 <= '1';
@@ -72,20 +71,15 @@ BEGIN
                     IF (timer_1 < threshold) THEN
                         o_left_fired <= '1';
                         timer_1      <= 0;
-                        o_led(1)     <= '1';
                     END IF;
 
                     IF (timer_2 < threshold) THEN
                         o_right_fired <= '1';
                         timer_2       <= 0;
-                        o_led(0)      <= '1';
                     END IF;
 
-                    IF (i_ack = '1') THEN
-						state         <= idle;
-                        o_left_fired  <= '0';
-                        o_right_fired <= '0';
-					END IF;
+					state <= idle;
+
             END CASE;
         END IF;
     END PROCESS;
