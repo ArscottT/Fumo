@@ -66,8 +66,10 @@ signal last_sample	    : std_logic_vector(9 downto 0);
     ------------------------------------------------------------------------------
     --ADDITIONAL SIGNALS FOR FUMO
     ------------------------------------------------------------------------------
-    TYPE state_type IS (idle, forward, left_pivot, right_pivot);
-    SIGNAL state                                      : state_type := idle;
+    TYPE search_state_type IS (idle, forward, left_pivot, right_pivot);
+    TYPE attack_state_type IS (charge);
+    SIGNAL search_state                               : search_state_type := idle;
+    SIGNAL attack_state                               : attack_state_type := charge;
     SIGNAL left_fired_s, right_fired_s, ultra_found_s : std_logic := '0';
     SIGNAL motor_control_s                            : std_logic_vector(2 DOWNTO 0) := "000";
     SIGNAL counter_s                                  : integer := 0; ---- work out range for this
@@ -83,46 +85,57 @@ begin
     PROCESS(clk) BEGIN
         IF rising_edge(clk) THEN
             IF (rst = '1') THEN
-                state <= idle;
+                search_state <= idle;
+                attack_state <= charge;
             ELSE
-                CASE state IS
-                    WHEN idle =>
-                        led(7 DOWNTO 2) <= "100000";
-                        motor_control_s <= stop_c;
-                        state           <= forward;
+                IF(ultra_found_s = '1') THEN
+                    CASE attack_state IS
+                        WHEN charge =>
+                            search_state    <= idle;
+                            led(7 DOWNTO 2) <= "000011";
+                            motor_control_s <= forward_c; --change this to fast speed when speed is implemented
+                    END CASE;
+                ELSE
+                    CASE search_state IS
+                        WHEN idle =>
+                            led(7 DOWNTO 2) <= "100000";
+                            attack_state    <= charge;
+                            motor_control_s <= stop_c;
+                            search_state    <= forward;
 
-                    WHEN forward =>
-                        led(7 DOWNTO 2) <= "010000";
-                        motor_control_s <= forward_c;
-                        IF (left_fired_s = '1' AND right_fired_s = '1') THEN
-                            counter_s <= pivot_time_c;
-                            state     <= right_pivot; --create new state 180
-                        ELSIF (left_fired_s = '1') THEN
-                            counter_s <= pivot_time_c;
-                            state     <= right_pivot;
-                        ELSIF (right_fired_s = '1') THEN
-                            counter_s <= pivot_time_c;
-                            state     <= left_pivot;
-                        END IF;
+                        WHEN forward =>
+                            led(7 DOWNTO 2) <= "010000";
+                            motor_control_s <= forward_c;
+                            IF (left_fired_s = '1' AND right_fired_s = '1') THEN
+                                counter_s    <= pivot_time_c;
+                                search_state <= right_pivot; --create new state 180
+                            ELSIF (left_fired_s = '1') THEN
+                                counter_s    <= pivot_time_c;
+                                search_state <= right_pivot;
+                            ELSIF (right_fired_s = '1') THEN
+                                counter_s <= pivot_time_c;
+                                search_state     <= left_pivot;
+                            END IF;
 
-                    WHEN left_pivot =>
-                        led(7 DOWNTO 2) <= "001000";
-                        motor_control_s <= left_pivot_c;
-                        IF (counter_s = 0) THEN
-                            state <= forward;
-                        ELSE
-                            counter_s <= counter_s - 1;
-                        END IF;
+                        WHEN left_pivot =>
+                            led(7 DOWNTO 2) <= "001000";
+                            motor_control_s <= left_pivot_c;
+                            IF (counter_s = 0) THEN
+                                search_state <= forward;
+                            ELSE
+                                counter_s <= counter_s - 1;
+                            END IF;
 
-                    WHEN right_pivot =>
-                        led(7 DOWNTO 2) <= "000100";
-                        motor_control_s <= right_pivot_c;
-                        IF (counter_s = 0) THEN
-                            state <= forward;
-                        ELSE
-                            counter_s <= counter_s - 1;
-                        END IF;
-                END CASE;
+                        WHEN right_pivot =>
+                            led(7 DOWNTO 2) <= "000100";
+                            motor_control_s <= right_pivot_c;
+                            IF (counter_s = 0) THEN
+                                search_state <= forward;
+                            ELSE
+                                counter_s <= counter_s - 1;
+                            END IF;
+                    END CASE;
+                END IF;
             END IF;
         END IF;
     END PROCESS;
@@ -188,6 +201,6 @@ begin
         PORT MAP (
             i_clk     => clk,
             o_found   => ultra_found_s,
-        i   o_sensor => io_ultra_sensor
+            io_sensor => io_ultra_sensor
         );
 end RTL;
