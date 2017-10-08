@@ -32,6 +32,7 @@ entity mojo_top is
         ----additional io----
         io_reflectance_1  : INOUT std_logic;
         io_reflectance_2  : INOUT std_logic;
+        io_ultra_sensor   : INOUT std_logic;
         o_pd1_left        : OUT std_logic;
         o_pd2_left        : OUT std_logic;
         o_motor_pwm_left  : OUT std_logic;
@@ -66,10 +67,10 @@ signal last_sample	    : std_logic_vector(9 downto 0);
     --ADDITIONAL SIGNALS FOR FUMO
     ------------------------------------------------------------------------------
     TYPE state_type IS (idle, forward, left_pivot, right_pivot);
-    SIGNAL state                       : state_type := idle;
-    SIGNAL left_fired_s, right_fired_s : std_logic := '0';
-    SIGNAL motor_control_s             : std_logic_vector(2 DOWNTO 0) := "000";
-    SIGNAL counter_s                   : integer := 0; ---- work out range for this
+    SIGNAL state                                      : state_type := idle;
+    SIGNAL left_fired_s, right_fired_s, ultra_found_s : std_logic := '0';
+    SIGNAL motor_control_s                            : std_logic_vector(2 DOWNTO 0) := "000";
+    SIGNAL counter_s                                  : integer := 0; ---- work out range for this
 
 begin
 
@@ -182,5 +183,11 @@ begin
             o_left_fired     => left_fired_s,
             o_right_fired    => right_fired_s
     	 );
-
+    ----ultrasound_sensor----
+    ultrasound_sensor : ENTITY work.ultrasound_sensor
+        PORT MAP (
+            i_clk     => clk,
+            o_found   => ultra_found_s,
+        i   o_sensor => io_ultra_sensor
+        );
 end RTL;
