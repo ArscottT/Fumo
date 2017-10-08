@@ -121,7 +121,7 @@ begin
                         ELSE
                             counter_s <= counter_s - 1;
                         END IF;
-                    END CASE;
+                END CASE;
             END IF;
         END IF;
     END PROCESS;
