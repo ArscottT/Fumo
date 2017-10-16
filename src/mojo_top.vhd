@@ -66,7 +66,7 @@ signal last_sample	    : std_logic_vector(9 downto 0);
     ------------------------------------------------------------------------------
     --ADDITIONAL SIGNALS FOR FUMO
     ------------------------------------------------------------------------------
-    TYPE search_state_type IS (idle, forward, left_pivot, right_pivot);
+    TYPE search_state_type IS (idle, left_pivot, right_pivot);
     TYPE attack_state_type IS (charge);
     SIGNAL search_state                               : search_state_type := idle;
     SIGNAL attack_state                               : attack_state_type := charge;
@@ -94,6 +94,35 @@ begin
                             search_state    <= idle;
                             led(7 DOWNTO 2) <= "000011";
                             motor_control_s <= forward_c; --change this to fast speed when speed is implemented
+                            IF (left_fired_s = '1' AND right_fired_s = '1') THEN
+                                counter_s    <= pivot_time_c;
+                                attack_state <= right_pivot; --create new state 180
+                            ELSIF (left_fired_s = '1') THEN
+                                counter_s    <= pivot_time_c;
+                                attack_state <= center_right_pivot;
+                            ELSIF (right_fired_s = '1') THEN
+                                counter_s     <= pivot_time_c;
+                                attack_state  <= center_left_pivot;
+                            END IF;
+
+                            WHEN center_left_pivot => --change these two states to point fumo at center
+                                led(7 DOWNTO 2) <= "001000";
+                                motor_control_s <= left_pivot_c;
+                                IF (counter_s = 0) THEN
+                                    search_state <= right_pivot;
+                                ELSE
+                                    counter_s <= counter_s - 1;
+                                END IF;
+
+                            WHEN center_right_pivot =>
+                                led(7 DOWNTO 2) <= "000100";
+                                motor_control_s <= right_pivot_c;
+                                IF (counter_s = 0) THEN
+                                    search_state <= left_pivot;
+                                ELSE
+                                    counter_s <= counter_s - 1;
+                                END IF;
+
                     END CASE;
                 ELSE
                     CASE search_state IS
@@ -101,27 +130,13 @@ begin
                             led(7 DOWNTO 2) <= "100000";
                             attack_state    <= charge;
                             motor_control_s <= stop_c;
-                            search_state    <= forward;
+                            search_state    <= left_pivot;
 
-                        WHEN forward =>
-                            led(7 DOWNTO 2) <= "010000";
-                            motor_control_s <= forward_c;
-                            IF (left_fired_s = '1' AND right_fired_s = '1') THEN
-                                counter_s    <= pivot_time_c;
-                                search_state <= right_pivot; --create new state 180
-                            ELSIF (left_fired_s = '1') THEN
-                                counter_s    <= pivot_time_c;
-                                search_state <= right_pivot;
-                            ELSIF (right_fired_s = '1') THEN
-                                counter_s <= pivot_time_c;
-                                search_state     <= left_pivot;
-                            END IF;
-
-                        WHEN left_pivot =>
+                        WHEN left_pivot => --make sure these two states cover whole arena
                             led(7 DOWNTO 2) <= "001000";
                             motor_control_s <= left_pivot_c;
                             IF (counter_s = 0) THEN
-                                search_state <= forward;
+                                search_state <= right_pivot;
                             ELSE
                                 counter_s <= counter_s - 1;
                             END IF;
@@ -130,7 +145,7 @@ begin
                             led(7 DOWNTO 2) <= "000100";
                             motor_control_s <= right_pivot_c;
                             IF (counter_s = 0) THEN
-                                search_state <= forward;
+                                search_state <= left_pivot;
                             ELSE
                                 counter_s <= counter_s - 1;
                             END IF;
